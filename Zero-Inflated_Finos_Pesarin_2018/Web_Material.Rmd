@@ -35,6 +35,7 @@ seeds0[is.na(seeds)]=1
 # the two tests
 (res1 = flip(x+y~grp,data=seeds0,perms=10000,tail=1))
 
+plot(res1)
 # and combined
 npc(res1,comb.funct = "Fisher")
 
@@ -57,12 +58,15 @@ npc(res2,comb.funct = "Fisher")
 # the two tests for the problem X|X>0
 res3_Quant = flip(x+y~grp,data=seeds,statTest = "NA",perms=10000,tail=1,flipReturn = list(permSpace=TRUE,permT=TRUE))
 
+plot(res3_Quant)
 # the test for the problem X>0
 seeds$Zeros=is.na(seeds$x)*1
 res3_zero = flip(Zeros~grp,data=seeds,perms=res3_Quant@permSpace,tail=-1)
 
 res3=cFlip(res3_zero,res3_Quant)
 res3
+
+
 
 # and combined
 npc(res3,comb.funct = "Fisher")
