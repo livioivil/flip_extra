@@ -1,4 +1,4 @@
-compute_orbit_cardinality <- function(tested_variable=1,data=COV){
+compute_orbit_cardinality <- function(tested_variable=1,data=dati[-1,]){
   Strata=apply(data[,-tested_variable],1,paste,collapse="_")
   Strata=as.numeric(factor(Strata))
   Strata_freq=table(Strata)

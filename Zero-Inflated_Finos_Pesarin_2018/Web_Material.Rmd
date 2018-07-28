@@ -21,17 +21,16 @@ source("functions.R")
 # Analysis of Medical Care data
 
 ## Load data
-Download the data from:
+The data comes from:
 <https://www.jstatsoft.org/index.php/jss/article/downloadSuppFile/v027i08/DebTrivedi.rda.zip>
+A `Rdata` file is saved in this folder for your convenience.
 
-Now, load the data and define the set of covariates to be used.
+Now, load the data and define the dataset to be used, for our convenience.
 ```{r load}
 load("DebTrivedi.rda")
 
-COV=DebTrivedi[,c("hosp","health","numchron","gender","school","privins")]
-summary(COV)
-
-dati=data.frame(ofp=DebTrivedi$ofp,COV)
+dati=DebTrivedi[,c("ofp","hosp","health","numchron","gender","school","privins")]
+summary(dati)
 ```
 
 ## Fit parametric Hurdle model
@@ -51,7 +50,7 @@ modelHurdle <- pscl::hurdle(formula = formula,
 Before we proceed, let's compute the Maximum cardinality for each test:
 
 ```{r cardinality,warning=FALSE}
-sapply(1:ncol(COV),compute_orbit_cardinality)
+sapply(2:ncol(dati),compute_orbit_cardinality)
 ```
 
 The number is very high, certainly enough for a permutation test.
