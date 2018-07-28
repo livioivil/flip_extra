@@ -1,0 +1,114 @@
+---
+title: 'On zero-inflated permutation testing and some related problems: web material'
+author: "Livio Finos and Fortunato Pesarin"
+date: "28 July 2018"
+output: 
+  html_document: 
+    toc: yes
+---
+
+This is the web material of the work **On zero-inflated permutation testing and some
+related problems** by Livio Finos and Fortunato Pesarin.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(flip)
+library(plyr)
+library(knitr)
+source("functions.R")
+```
+
+# Analysis of Medical Care data
+
+## Load data
+Download the data from:
+<https://www.jstatsoft.org/index.php/jss/article/downloadSuppFile/v027i08/DebTrivedi.rda.zip>
+
+Now, load the data and define the set of covariates to be used.
+```{r load}
+load("DebTrivedi.rda")
+
+COV=DebTrivedi[,c("hosp","health","numchron","gender","school","privins")]
+summary(COV)
+
+dati=data.frame(ofp=DebTrivedi$ofp,COV)
+```
+
+## Fit parametric Hurdle model
+
+```{r hurdle}
+formula <- ofp ~ hosp + health + numchron + gender + school + privins
+modelHurdle <- pscl::hurdle(formula = formula,
+                            dist    = "negbin",
+                            data    = DebTrivedi)
+(out=summary(modelHurdle))
+
+```
+
+## Permutation based analysis
+
+
+Before we proceed, let's compute the Maximum cardinality for each test:
+
+```{r cardinality,warning=FALSE}
+sapply(1:ncol(COV),compute_orbit_cardinality)
+```
+
+The number is very high, certainly enough for a permutation test.
+
+```{r permutation}
+# Depending on the number of permutations 'perms', the computation time can be very high, set EVAL=TRUE (here below) to run the analysis
+EVAL=FALSE
+perms=1000
+
+dati$health=relevel(dati$health,"average")
+dataX <- flip:::.getXY(ofp ~ hosp + health + numchron + gender + school + privins,
+                         data=dati,statTest="permutation",rotationTest = FALSE)
+nomefile=paste0("results_permutation_MC",perms,".Rdata")
+if(EVAL){
+  
+  # the two response variables
+  id_Ynot0=which(dataX$Y!=0)
+  # Yno0=dataX$Y[dataX$Y!=0,]
+  Y01=(dataX$Y!=0)*1
+  # table(Y01)
+  # Yno0_orig=Yno0
+  Y01_orig=Y01
+  
+  lista_tested_var=list(2,3,4,5,6,7,8)
+  set.seed(1)
+  res_permT=llply(lista_tested_var,compute_test_stats_pvalues)
+  save(res_permT,file=nomefile)
+} else
+load(file=nomefile)
+
+## some make up of the results:
+pvals=sapply(res_permT,t2p,obs.only = 1,tail=0)
+pvals=c(pvals[2,],pvals[1,])
+
+stats=unlist(sapply(res_permT,function(X)X[1,]))
+stats=c(stats[2,],stats[1,])
+
+out=new("flip.object")
+out@res= data.frame(Test="z",Stat=stats,tail="><", p.value=pvals)
+colnames(out@res)[4]="p-value"
+rownames(out@res)=paste(rep(c("X|X>0 (Quantitative)","X>0 (Zeros)"),each=7),colnames(dataX$X)[-1],sep=":")
+summary(out)
+```
+
+
+
+
+## Plots
+An example for `gender(male)`. Change the number 5 in `res_permT[[5]]` - in the code below - to see other distributions of the test statistic
+
+```{r plot}
+out=new("flip.object",permT=res_permT[[5]][,2:1])
+colnames(out@permT)=c("X|X>0 (Quantitative)","X>0 (Zeros)")
+out@res=data.frame(T=matrix(res_permT[[5]][1,]))
+
+par(mfrow=c(2,2))
+plot(out)
+hist(out[2],main=colnames(out@permT)[2])
+hist(out[1],main=colnames(out@permT)[1])
+```
