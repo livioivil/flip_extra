@@ -14,9 +14,81 @@ related problems** by Livio Finos and Fortunato Pesarin.
 knitr::opts_chunk$set(echo = TRUE)
 library(flip)
 library(plyr)
-library(knitr)
+
 source("functions.R")
+set.seed(1)
 ```
+
+# Analysis of `seeds` data
+The codes and the data are available [here](https://github.com/livioivil/flip_extra/tree/master/Zero-Inflated_Finos_Pesarin_2018)
+
+load data
+```{r}
+data(seeds)
+```
+## The manufacturer's point of view
+
+```{r, sol1}
+seeds0=seeds
+seeds0[is.na(seeds)]=1
+
+# the two tests
+(res1 = flip(x+y~grp,data=seeds0,perms=10000,tail=1))
+
+# and combined
+npc(res1,comb.funct = "Fisher")
+
+```
+
+
+## The user's point of view
+
+```{r, sol2}
+# the two tests
+(res2 = flip(x+y~grp,data=seeds[!is.na(seeds$x),],perms=10000,tail=1))
+
+# and combined
+npc(res2,comb.funct = "Fisher")
+```
+
+## The point of view of a scientist (I)
+
+```{r, sol3}
+# the two tests for the problem X|X>0
+res3_Quant = flip(x+y~grp,data=seeds,statTest = "NA",perms=10000,tail=1,flipReturn = list(permSpace=TRUE,permT=TRUE))
+
+# the test for the problem X>0
+seeds$Zeros=is.na(seeds$x)*1
+res3_zero = flip(Zeros~grp,data=seeds,perms=res3_Quant@permSpace,tail=-1)
+
+res3=cFlip(res3_zero,res3_Quant)
+res3
+
+# and combined
+npc(res3,comb.funct = "Fisher")
+
+```
+
+## The point of view of a scientist (II)
+
+```{r, sol4}
+# the 2+2 tests for the problem X|X>0
+res4_plus = res3
+
+(res4_Quant_minus = flip(x+y~grp,data=seeds,statTest = "NA",perms=res3_Quant@permSpace,tail=-1))
+
+# the test for the problem X>0
+(res4_zero_minus = flip(Zeros~grp,data=seeds,perms=res3@permSpace,tail=+1))
+
+res4=cFlip(res4_plus,res4_zero_minus,res4_Quant_minus)
+res4
+
+
+# and combined
+npc(res4,comb.funct = "Fisher",subsets = list(Zeros=c(1,4),x=c(2,5),y=c(3,6),overall=1:6))
+
+```
+
 
 # Analysis of Medical Care data
 The codes and the data are available [here](https://github.com/livioivil/flip_extra/tree/master/Zero-Inflated_Finos_Pesarin_2018)
@@ -24,6 +96,7 @@ The codes and the data are available [here](https://github.com/livioivil/flip_ex
 ## Load data
 The data comes from:
 <https://www.jstatsoft.org/index.php/jss/article/downloadSuppFile/v027i08/DebTrivedi.rda.zip>
+
 A `Rdata` file is saved in this folder for your convenience.
 
 Now, load the data and define the dataset to be used, for our convenience.

@@ -106,46 +106,30 @@ compute_test_stats_pvalues <- function(tested_var=2){
   permT#[1,],p=t2p(permT,obs.only = 1,tail = 0))
 }
 
-#############
-# compute_parametric_models <- function(tested_var=2){
-#   id_sampled=sample(nrow(DebTrivedi),nrow(DebTrivedi)/2)
-#   STRATA <- factor(aaply(dataX$X[id_sampled,],1,paste,collapse="_"))
-#   dummies=(model.matrix(~.,data=data.frame(STRATA)))
-#   sv=svd(dummies)
-#   
-#   X=dataX$X[id_sampled,tested_var,drop=FALSE]
-#   
-#   modelPoisson <-glm(formula =ofp ~ dummies[,-1],
-#       family  = poisson(link = "log"),
-#       data    = DebTrivedi[id_sampled,]
-#   )
-#   # summary(modelPoisson)
-#   modelZeroInfl0 <- zeroinfl(formula = ofp ~ sv$u+0,
-#                              dist    = "negbin",
-#                              data    = DebTrivedi[id_sampled,])
-#   
-#   modelZeroInfl0 <- zeroinfl(formula = ofp ~ dummies[,-1],
-#                              dist    = "negbin",
-#                              data    = DebTrivedi[id_sampled,])
-#   
-#   STRATA <- factor(aaply(dataX$X[id_sampled,-tested_var],1,paste,collapse="_"))
-#   dummies=scale(model.matrix(~.,data=data.frame(STRATA)))
-#   modelPoisson0 <-glm(formula =ofp ~ dummies[,-1],
-#                      family  = poisson(link = "log"),
-#                      data    = DebTrivedi[id_sampled,]
-#   )
-#   anova(modelPoisson0,modelPoisson)
-#   
-#   library(pscl)
-#   modelZeroInfl0 <- zeroinfl(formula = ofp ~ dummies[,-1],
-#                             dist    = "negbin",
-#                             data    = DebTrivedi[id_sampled,])
-#   
-#   # modelHurdle <- pscl::hurdle(formula = ofp ~ dummies[,-1],
-#   #                             dist    = "negbin",
-#   #                             data    = DebTrivedi[id_sampled,]
-#   # )
-#   # summary(modelHurdle)
-#   # save(file="risultati_analisi_hurdle.Rdata",modelHurdle)
-#   
-# }
+
+
+######### utility for flip
+cFlip <- function(...) {
+  res=list(...)[[1]]
+  if(length(list(...))>1){
+    nperms=sapply(list(...),function(xx) nrow(xx@permT))
+    if(length(unique(nperms))>1) {
+      warning("The flip-objects have different number of permutations, the minimum number will be retained for each test.")
+      nperms=min(nperms)
+    } else nperms=nperms[1]
+    
+    for(i in 2:length(list(...)))  res@permT=cbind(res@permT[1:nperms,,drop=FALSE],list(...)[[i]]@permT[1:nperms,,drop=FALSE])
+    
+    res@tail = as.vector(unlist(sapply(1:length(list(...)), function(i)  rep(if(is.null(list(...)[[i]]@tail)) 0 else list(...)[[i]]@tail,length.out=ncol(list(...)[[i]]@permT))
+    )))
+    # migliore questo output, ammettere la presenza di altri elementi in extraInfoPre
+    resNames=unique(unlist(sapply(list(...),function(xx) colnames(xx@res))))
+    resNames=c(setdiff(resNames,c("Stat","p-value")),c("Stat","p-value"))
+    res@res[,setdiff(resNames,colnames(res@res))]=NA
+    res@res=res@res[,resNames]
+    for(i in 2:length(list(...)))  {
+      res@res[nrow(res@res)+(1:nrow(list(...)[[i]]@res)),colnames(list(...)[[i]]@res)]=list(...)[[i]]@res
+    }
+  }
+  res
+}

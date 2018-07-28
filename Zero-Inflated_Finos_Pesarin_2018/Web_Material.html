@@ -130,6 +130,12 @@ $(document).ready(function () {
 
 <div id="TOC">
 <ul>
+<li><a href="#analysis-of-seeds-data">Analysis of <code>seeds</code> data</a><ul>
+<li><a href="#the-manufacturers-point-of-view">The manufacturer’s point of view</a></li>
+<li><a href="#the-users-point-of-view">The user’s point of view</a></li>
+<li><a href="#the-point-of-view-of-a-scientist-i">The point of view of a scientist (I)</a></li>
+<li><a href="#the-point-of-view-of-a-scientist-ii">The point of view of a scientist (II)</a></li>
+</ul></li>
 <li><a href="#analysis-of-medical-care-data">Analysis of Medical Care data</a><ul>
 <li><a href="#load-data">Load data</a></li>
 <li><a href="#fit-parametric-hurdle-model">Fit parametric Hurdle model</a></li>
@@ -140,6 +146,123 @@ $(document).ready(function () {
 </div>
 
 <p>This is the web material of the work <strong>On zero-inflated permutation testing and some related problems</strong> by Livio Finos and Fortunato Pesarin.</p>
+<div id="analysis-of-seeds-data" class="section level1">
+<h1>Analysis of <code>seeds</code> data</h1>
+<p>The codes and the data are available <a href="https://github.com/livioivil/flip_extra/tree/master/Zero-Inflated_Finos_Pesarin_2018">here</a></p>
+<p>load data</p>
+<pre class="r"><code>data(seeds)</code></pre>
+<div id="the-manufacturers-point-of-view" class="section level2">
+<h2>The manufacturer’s point of view</h2>
+<pre class="r"><code>seeds0=seeds
+seeds0[is.na(seeds)]=1
+
+# the two tests
+(res1 = flip(x+y~grp,data=seeds0,perms=10000,tail=1))</code></pre>
+<pre><code>##     </code></pre>
+<pre><code>##  Call:
+##  flip(Y = x + y ~ grp, data = seeds0, tail = 1, perms = 10000) 
+## 9999 permutations.
+##   Test  Stat tail p-value sig.
+## x    t 2.235    &gt;  0.0166    *
+## y    t 2.774    &gt;  0.0053   **</code></pre>
+<pre class="r"><code># and combined
+npc(res1,comb.funct = &quot;Fisher&quot;)</code></pre>
+<pre><code>##  Call:
+##  npc(permTP = res1, comb.funct = &quot;Fisher&quot;) 
+##  permutations.
+##    comb.funct nVar  Stat p-value sig.
+## V1     Fisher    2 9.338  0.0080   **</code></pre>
+</div>
+<div id="the-users-point-of-view" class="section level2">
+<h2>The user’s point of view</h2>
+<pre class="r"><code># the two tests
+(res2 = flip(x+y~grp,data=seeds[!is.na(seeds$x),],perms=10000,tail=1))</code></pre>
+<pre><code>##     </code></pre>
+<pre><code>##  Call:
+##  flip(Y = x + y ~ grp, data = seeds[!is.na(seeds$x), ], tail = 1,      perms = 10000) 
+## 9999 permutations.
+##   Test  Stat tail p-value sig.
+## x    t 1.320    &gt;  0.0985     
+## y    t 2.061    &gt;  0.0240    *</code></pre>
+<pre class="r"><code># and combined
+npc(res2,comb.funct = &quot;Fisher&quot;)</code></pre>
+<pre><code>##  Call:
+##  npc(permTP = res2, comb.funct = &quot;Fisher&quot;) 
+##  permutations.
+##    comb.funct nVar  Stat p-value sig.
+## V1     Fisher    2 6.047  0.0417    *</code></pre>
+</div>
+<div id="the-point-of-view-of-a-scientist-i" class="section level2">
+<h2>The point of view of a scientist (I)</h2>
+<pre class="r"><code># the two tests for the problem X|X&gt;0
+res3_Quant = flip(x+y~grp,data=seeds,statTest = &quot;NA&quot;,perms=10000,tail=1,flipReturn = list(permSpace=TRUE,permT=TRUE))
+
+# the test for the problem X&gt;0
+seeds$Zeros=is.na(seeds$x)*1
+res3_zero = flip(Zeros~grp,data=seeds,perms=res3_Quant@permSpace,tail=-1)</code></pre>
+<pre><code>##     </code></pre>
+<pre class="r"><code>res3=cFlip(res3_zero,res3_Quant)
+res3</code></pre>
+<pre><code>##  Call:
+##  flip(Y = Zeros ~ grp, data = seeds, tail = -1, perms = res3_Quant@permSpace) 
+## 9999 permutations.
+##         Test tail NValidPerms    Stat p-value sig.
+## Zeros      t    &lt;          NA  -1.798  0.0771     
+## x     uni-NA    &gt;       10000  60.714  0.0953     
+## y     uni-NA    &gt;       10000 248.374  0.0269    *</code></pre>
+<pre class="r"><code># and combined
+npc(res3,comb.funct = &quot;Fisher&quot;)</code></pre>
+<pre><code>##  Call:
+##  npc(permTP = res3, comb.funct = &quot;Fisher&quot;) 
+##  permutations.
+##    comb.funct nVar  Stat p-value sig.
+## V1     Fisher    3 8.529  0.0175    *</code></pre>
+</div>
+<div id="the-point-of-view-of-a-scientist-ii" class="section level2">
+<h2>The point of view of a scientist (II)</h2>
+<pre class="r"><code># the 2+2 tests for the problem X|X&gt;0
+res4_plus = res3
+
+(res4_Quant_minus = flip(x+y~grp,data=seeds,statTest = &quot;NA&quot;,perms=res3_Quant@permSpace,tail=-1))</code></pre>
+<pre><code>##  Call:
+##  flip(Y = x + y ~ grp, data = seeds, tail = -1, perms = res3_Quant@permSpace,      statTest = &quot;NA&quot;) 
+## 9999 permutations.
+##     Test NValidPerms   Stat tail p-value sig.
+## x uni-NA       10000  60.71    &lt;  0.8987     
+## y uni-NA       10000 248.37    &lt;  0.9740</code></pre>
+<pre class="r"><code># the test for the problem X&gt;0
+(res4_zero_minus = flip(Zeros~grp,data=seeds,perms=res3@permSpace,tail=+1))</code></pre>
+<pre><code>##     </code></pre>
+<pre><code>##  Call:
+##  flip(Y = Zeros ~ grp, data = seeds, tail = +1, perms = res3@permSpace) 
+## 9999 permutations.
+##       Test   Stat tail p-value sig.
+## Zeros    t -1.798    &gt;  0.9849</code></pre>
+<pre class="r"><code>res4=cFlip(res4_plus,res4_zero_minus,res4_Quant_minus)
+res4</code></pre>
+<pre><code>##  Call:
+##  flip(Y = Zeros ~ grp, data = seeds, tail = -1, perms = res3_Quant@permSpace) 
+## 9999 permutations.
+##         Test tail NValidPerms    Stat p-value sig.
+## Zeros      t    &lt;          NA  -1.798  0.0771     
+## x     uni-NA    &gt;       10000  60.714  0.0953     
+## y     uni-NA    &gt;       10000 248.374  0.0269    *
+## 4          t    &gt;          NA  -1.798  0.9849     
+## 5     uni-NA    &lt;       10000  60.714  0.8987     
+## 6     uni-NA    &lt;       10000 248.374  0.9740</code></pre>
+<pre class="r"><code># and combined
+npc(res4,comb.funct = &quot;Fisher&quot;,subsets = list(c(1,4),c(2,5),c(3,6),1:6))</code></pre>
+<pre><code>## 1 / 42 / 43 / 44 / 4</code></pre>
+<pre><code>##  Call:
+##  npc(permTP = res4, comb.funct = &quot;Fisher&quot;, subsets = list(c(1,      4), c(2, 5), c(3, 6), 1:6)) 
+##  permutations.
+##    comb.funct nVar   Stat p-value sig.
+## V1     Fisher    2  5.125  0.0771     
+## V2     Fisher    2  4.701  0.0953     
+## V3     Fisher    2  7.231  0.0269    *
+## V4     Fisher    6 17.058  0.0175    *</code></pre>
+</div>
+</div>
 <div id="analysis-of-medical-care-data" class="section level1">
 <h1>Analysis of Medical Care data</h1>
 <p>The codes and the data are available <a href="https://github.com/livioivil/flip_extra/tree/master/Zero-Inflated_Finos_Pesarin_2018">here</a></p>
