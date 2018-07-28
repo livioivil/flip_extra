@@ -19,6 +19,7 @@ source("functions.R")
 ```
 
 # Analysis of Medical Care data
+The codes and the data are available [here](https://github.com/livioivil/flip_extra/tree/master/Zero-Inflated_Finos_Pesarin_2018)
 
 ## Load data
 The data comes from:

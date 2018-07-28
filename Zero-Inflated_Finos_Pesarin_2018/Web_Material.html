@@ -142,10 +142,11 @@ $(document).ready(function () {
 <p>This is the web material of the work <strong>On zero-inflated permutation testing and some related problems</strong> by Livio Finos and Fortunato Pesarin.</p>
 <div id="analysis-of-medical-care-data" class="section level1">
 <h1>Analysis of Medical Care data</h1>
+<p>The codes and the data are available <a href="https://github.com/livioivil/flip_extra/tree/master/Zero-Inflated_Finos_Pesarin_2018">here</a></p>
 <div id="load-data" class="section level2">
 <h2>Load data</h2>
 <p>The data comes from: <a href="https://www.jstatsoft.org/index.php/jss/article/downloadSuppFile/v027i08/DebTrivedi.rda.zip" class="uri">https://www.jstatsoft.org/index.php/jss/article/downloadSuppFile/v027i08/DebTrivedi.rda.zip</a> A <code>Rdata</code> file is saved in this folder for your convenience.</p>
-<p>Now, load the data and define the set of covariates to be used.</p>
+<p>Now, load the data and define the dataset to be used, for our convenience.</p>
 <pre class="r"><code>load(&quot;DebTrivedi.rda&quot;)
 
 dati=DebTrivedi[,c(&quot;ofp&quot;,&quot;hosp&quot;,&quot;health&quot;,&quot;numchron&quot;,&quot;gender&quot;,&quot;school&quot;,&quot;privins&quot;)]
