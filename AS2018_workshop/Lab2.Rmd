@@ -1,0 +1,206 @@
+---
+title: "Permutation-based multiple testing with `R` - lab 2/2"
+author: "Livio Finos"
+highlighter: highlight.js
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    number_sections: yes
+    toc: yes
+job: University of Padua
+license: by-nc-sa
+mode: selfcontained
+hitheme: tomorrow
+subtitle: Application with R
+framework: io2012
+widgets: []
+---
+
+
+```{r,message=FALSE}
+# install.packages("flip")
+library(flip)
+```
+
+# Seeds data
+omit the `NA`s:
+
+```{r}
+data(seeds,package = "flip")
+seeds=na.omit(seeds)
+seeds
+```
+
+Use a permutation methods to test if there is any difference between the two groups in `grp` on the two variables `x` and `y`:
+
+- perform the two tests for the two variables
+- Combine the two p-values using the Fisher Combining Function to test the global hypothesis
+- Use a closed testing procedure to adjust the 2 p-values.
+
+## A solution
+
+```{r}
+library(flip)
+res=flip(.~grp,data=seeds)
+hist(res)
+plot(res)
+
+# Global p-value
+npc(res,"Fisher")
+
+# adjusted p: Closed testing with Fisher combination
+flip.adjust(res,"Fisher")
+```
+
+## Rejection regions
+
+Ask for the multivariate distribution of the p-values: 
+```{r}
+res=flip(.~grp,data=seeds,flipReturn =list(permP=TRUE,permT=TRUE))
+res.fisher=npc(res,"Fisher",flipReturn =list(permP=TRUE,permT=TRUE))
+res.tippett=npc(res,"minP",flipReturn =list(permP=TRUE,permT=TRUE))
+```
+
+###Fisher Combining Function
+We ispect the rejection regions of the two univariate tests and the one of Fisher combination.  
+The intersection of each univariate test with the Fisher region defines the rejection region of a closed testing - i.e. adjusted for multiple testing.
+
+```{r,echo=FALSE}
+Falpha5=res.fisher@permT[which.min(abs(res.fisher@permP-.05))]
+plot(res@permP[,1],res@permP[,2],col="#F2AD00",bg="#F98400",pch=21,main="Alpha .05",asp=1)
+
+curve(exp(-Falpha5)/x,ylim=c(0,1),from=0.00001,to=1,add=TRUE,col="red",lwd=2)
+abline(v=.05,col="green",lwd=2)
+abline(h=.05,col="blue",lwd=2)
+legend("topright",legend=c("H0(x,y) (Fisher)","H0(x)","H0(y)"),col=2:4,bty="n",lwd=2)
+```
+
+
+### Tippett (min-p) Combining Function
+We ispect the rejection regions of the two univariate tests and the one of Fisher combination.  
+The intersection of each univariate test with the Fisher region defines the rejection region of a closed testing - i.e. adjusted for multiple testing.
+This fall to be the same rejection region given by Wesfall \& Young. Indeed, it is a closed testing with shortcut.
+
+
+```{r,echo=FALSE}
+Falpha5=-res.tippett@permT[which.min(abs(res.tippett@permP-.05))]
+plot(res@permP[,1],res@permP[,2],col="#F2AD00",bg="#F98400",pch=21,main="Alpha .05",asp=1)
+
+lines(c(Falpha5,Falpha5),c(Falpha5,1),col="red",lwd=2)
+lines(c(Falpha5,1),c(Falpha5,Falpha5),col="red",lwd=2)
+abline(v=.05,col="green",lwd=2)
+abline(h=.05,col="blue",lwd=2)
+legend("topright",legend=c("H0(x,y) (Tippett)","H0(x)","H0(y)"),col=2:4,bty="n",lwd=2)
+```
+
+
+# Pharmacokinetic Study of Carbidopa 
+
+Description:  
+<http://webserv.jcu.edu/math//faculty/TShort/Bradstreet/part2/part2-table6.html>
+
+As part of a pharmacokinetic study, 12 healthy male subjects were allocated randomly to a three period crossover design receiving one of three graded doses (25, 50, 100 mg) of Carbidopa q8h in each treatment period. A seven day washout period separated the treatment periods. The pharmacokinetic variables AUC, Cmax, and Tmax were calculated for each subject from plasma concentrations assayed from blood samples taken at 0, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, and 8 hours postdosing following the second dose of carbidopa on the sixth day of each treatment period.
+
+
+dataset:  
+<http://webserv.jcu.edu/math//faculty/TShort/Bradstreet/part2/Bradp2t6.txt>
+
+
+Analyze the dataset without taking in account the Study Periods (which have been randomized in each subject, hence we can avoid to account for it in the analysis).
+
+Research questions:
+
+- Is there a dose response for AUC, Cmax, or Tmax? Overall?
+- Can dose proportionality be established? (try to fit a linear model for each endpoint, then discuss the results)
+
+
+## A solution
+
+
+We answer to both first and second question with a single analysis: we perform a linear model (accounting for individual variability) on log transformed end-points.
+
+
+```{r}
+#Reading and make-up of the data
+
+dati=read.table("http://webserv.jcu.edu/math//faculty/TShort/Bradstreet/part2/Bradp2t6.txt",skip = 1,header = TRUE)
+
+dati=cbind(dati[,1],matrix(as.matrix(dati[,-1]),nrow(dati)*3,4))
+colnames(dati)=c("Sub","Dose","AUC","Cmax","Tmax")
+
+dati=as.data.frame(dati)
+str(dati)
+
+# transform all responses with log-transformed, 
+# so that a linear relationship between time and end-point indicates proportionality 
+dati[,3:5]=log(dati[,3:5])
+```
+
+
+
+```{r}
+#Descriptives and plots:
+summary(dati[,-1])
+by(dati[,3:5],dati$Dose,summary)
+
+par(mfro=c(2,2))
+plot(dati$Dose,dati$AUC,ylab="log(AUC)",xlab="Dose",main="Dose vs log(AUC)")
+
+r=sapply(unique(dati$Sub),function(s){
+  d=subset(dati,Sub==s)
+  d=d[order(d$Dose),]
+  lines(d$Dose,(d$AUC),col=s,lwd=2)})
+
+
+plot(dati$Dose,dati$Cmax,ylab="log(Cmax)",xlab="Dose",main="Dose vs log(Cmax)")
+r=sapply(unique(dati$Sub),function(s){
+  d=subset(dati,Sub==s)
+  d=d[order(d$Dose),]
+  lines(d$Dose,(d$Cmax),col=s,lwd=2)})
+
+
+plot(dati$Dose,dati$Tmax,ylab="log(Tmax)",xlab="Dose",main="Dose vs log(Tmax)")
+r=sapply(unique(dati$Sub),function(s){
+  d=subset(dati,Sub==s)
+  d=d[order(d$Dose),]
+  lines(d$Dose,(d$Tmax),col=s,lwd=2)})
+
+```
+
+
+Now the analysis: A simple solution could be:
+
+```{r}
+library(flip)
+res=flip(.~Dose,data=dati,Strata=~Sub,statTest = "coeff")
+summary(res)
+#here we ask for statTest = "coeff", i.e. estimated coefficient of a linear model
+hist(res)
+```
+
+
+Multivariate:
+
+- Overall
+
+```{r}
+res=flip.adjust(res)
+npc(res,"Fisher")
+```
+
+There is an effect of `Dose`, overall.
+
+
+- By end-points (closed testing with max-t combininig function). 
+Try also different methods (e.g. `method="Fisher"`) and compare the results of `method="minP"` with the one of `method="Holm"`. 
+
+```{r}
+res=flip.adjust(res,method="holm")
+res=flip.adjust(res,method="Fisher")
+summary(res)
+```
+
+`AUC` and `Cmax` show a significant effect after correction for multiplicity, while `Tmax` does not.
+
+

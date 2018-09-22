@@ -1,0 +1,550 @@
+---
+title: "Permutation-based multiple testing with `R` - lab 1/2"
+author: "Livio Finos"
+date: "23 settembre 2018"
+output:
+  ioslides_presentation: 
+    logo: C:/Users/livio/Dropbox (DPSS)/didattica/Permutation/AppStats/figures/logoUnipd.jpg
+  beamer_presentation: default
+---
+
+<!-- --- -->
+<!-- title: "Permutations" -->
+<!-- author: "Livio Finos" -->
+<!-- date: "20 settembre 2018" -->
+<!-- output: -->
+<!--   html_document: -->
+<!--     toc: yes -->
+<!-- --- -->
+
+<!-- --- -->
+
+<!-- --- -->
+
+# Outline of the workshop
+
+## Outline of the workshop
+
+- Univariate Permutation testing - how, in practice (Lab1.html/Rmd)
+- Theory in a nutshell - why, pros and cons (Slides1.pdf)
+- Joint distribution and Multivariate Testing (Slides1.pdf)
+- Multiple Testing - Why and how (Slides2.pdf)
+- Multivariate and Multiple Permutation testing - in practice (Lab2.html/Rmd)
+
+
+## Before we start
+
+```{r}
+#clean the memory
+rm (list=ls ())
+
+
+# We customize the output of our graphs a little bit
+par.old=par ()
+par (cex.main=1.5, lwd=2, col="darkgrey", pch=20, cex=3)
+# par (par.old)
+palette (c ("#FF0000", "#00A08A", "#FFCC00", "#445577", "#45abff"))
+
+# customize the output of knitr
+knitr :: opts_chunk$set (fig.align="center")#, fig.width=6, fig.height=6)
+```
+
+## The Age vs Reaction Time Dataset
+
+The reaction time of these subjects was tested by having them grab a meter stick after it was released by the tester. The number of centimeters that the meter stick dropped before being caught is a direct measure of the person’s response time.
+
+The values of `Age` are in years. The `Gender` is coded as `F` for female and  `M` for male.
+The values of `Reaction.Time` are in centimeters.
+
+(data are fictitious)
+
+To read the data
+
+```{r}
+data(reaction,package = "flip")
+# or download it from: https://github.com/livioivil/flip/tree/master/data
+# str (reaction)
+```
+
+---
+
+We plot the data
+
+```{r,fig.height=4,fig.width=4}
+plot(x=reaction$Age,y=reaction$Reaction.Time,pch=20,col=2,cex=2)
+```
+
+# Measures of Dependence and the Simple linear model
+## Measuring the dependence
+
+we define:
+
+- $X=Temperature$  
+- $Y=Reaction.Time$
+
+We review some famous index to measure the (linear) dependence among two variables
+
+## Covariance and Variance
+
+**Covariance** between $X$ and $Y$:
+
+$\sigma_{xy}=\frac{\sum_{i=1} ^ n (x_i- \bar{x}) (y_i- \bar{y} )}{n}$
+
+- values between $- \infty$ and $\infty$  
+- $\sigma_{xy} \approx 0$: there is no dependency between $X$ and $Y$  
+- $\sigma_{xy} >> (<<) 0$: there is a strong positive (negative) dependency between $X$ and $Y$  
+
+---
+
+**Variance** of $X$ (= covariance between $X$ and $X$):
+
+$\sigma_{xx}=\sigma_{x} ^ 2= \frac{\sum_{i=1} ^ n (x_i- \bar{x}) ^ 2}{n}$
+
+**Standard Deviation** of $X$:
+
+$\sigma_{xx}=\sqrt{\sigma_{xx}}=\sigma_{x}$
+
+<!-- **(Co)Variance** of $X$:   -->
+<!-- $\sigma_{xy} ^ o=\frac{\sum_{i=1} ^ n (x_i- \bar{x}) (y_i- \bar{ y})}{n-1}$ -->
+
+
+<!-- (similarly for variance and standard deviation) -->
+
+
+## Correlation
+With the Covariance it is difficult to understand when the relationship between $X$ and $Y$ is strong / weak.
+We note that
+
+$- \sigma_{x} \sigma_{y} \leq \sigma_{xy} \leq \sigma_{x} \sigma_{y}$
+<!-- we divide each memeber by $\sigma_x \sigma_y$: -->
+is quivalent to
+$-1 \leq \frac{\sigma_{xy}}{\sigma_{x} \sigma_{y}} \leq 1$
+
+
+**Correlation** between $X$ and $Y$:
+
+$\rho_{xy}=\frac{\sigma{xy}}{\sigma_{x} \sigma_{y}} =
+\frac{\sum_{i=1} ^ n (x_i- \bar{x}) (y_i- \bar{y})}{\sqrt{\sum_{i=1} ^ n (x_i- \bar{ x}) ^ 2} \sqrt{\sum_{i=1} ^ n (y_i- \bar{y}) ^ 2}}$
+
+- values between $-1$ and $1$
+- $\rho_{xy} \approx 0$: there is no dependency between $X$ and $Y$
+- $\rho_{xy} \approx 1 (-1)$: there is a strong positive (negative) dependency between $X$ and $Y$
+
+
+## Linear Trend, the least squares method
+We describe the relationship between   
+`Reaction.Time` and
+`Temperature` with a straight line.
+
+$Reaction.Time \approx \beta_0 + \beta_1 Temperature$  
+$Y=\beta_0 + \beta_1X$
+
+Let's draw a line 'in the middle' of the data.
+
+--- 
+
+The **least-squares estimator**
+
+We look for the one that passes more 'in the middle', the one that minimizes the sum of the squares of the residues:
+
+$\hat{\beta}_0$ and $\hat{\beta}_1$ such that  
+$\sum_{i=1} ^ n (y_i - (\hat{\beta}_0 + \hat{\beta}_1x_i )) ^ 2$
+is minimum.
+
+---
+
+```{r,echo=FALSE}
+model=lm(Reaction.Time~Age,data=reaction)
+```
+
+Estimates:  
+
+- Angular coefficient: $\hat{\beta}_1=\frac{\sigma_{xy}}{\sigma_{xx}}=\rho_{xy}\frac{\sigma_{y}}{\sigma_{x}}=\frac{\sum_{i=1}^n(x_i- \bar{x})(y_i-\bar{y})}{\sum_{i=1}^n (x_i-\bar{x})^2}=$ `r coefficients(model)[2]`  
+- Intercept: $\hat{\beta}_0=\bar{y}-\hat{\beta}_1\bar{x}=$ `r coefficients(model)[1]`
+- Response (estimated $y$): $\hat{y}_i=\hat{\beta}_0 + \hat{\beta}_1x_i$
+- Residuals (from the estimated response):
+$y_i - (\hat{\beta}_0 + \hat{\beta}_1 x_i)=y_i- \hat{y}_i$
+
+
+and therefore the least squares are the sum of the squared residuals:
+$\sum_{i=1} ^ n (y_i- \hat{\beta}_0 + \hat{\beta}_1x_i) ^ 2=\sum_{i=1} ^ n (y_i- \hat{y}_i ) ^ 2$
+
+---
+
+A graphical representation:
+
+```{r}
+model=lm(Reaction.Time~Age,data=reaction)
+coefficients(model)
+```
+
+---
+
+```{r}
+plot(reaction$Age,reaction$Reaction.Time,pch=20,col=2,cex=1)
+coeff=round(coefficients(model),1)
+title(paste("Y=",coeff[1],"+",coeff[2],"*X"))
+abline(model,col=1)
+``` 
+
+<!-- ## Interpretation of the coefficients -->
+
+<!-- - $\beta_0$ indicates the value of $y$ when $x=0$ (where the line intersects the ordinate axis).  -->
+<!-- - $\beta_1$ indicates how much $y$ grows as a unit of $x$ grows  -->
+<!--   - If $\beta_1=0$ there is no relation between $x$ and $y$.$Y$is constant (horizontal ), knowing$x$does not change the estimate of $y$ -->
+<!--   - If $\beta_1> (<) 0$the relation between $x$ and $y$is positive (negative). When $X$passes from$x$ a$x + 1$the estimate of $Y$goes from$\hat{y}$to$\hat{y} + \hat{\beta}_1$ -->
+
+
+# Permutation approach to Hypothesis Testing
+
+## Some remarks
+
+Let's note that all the measures above does not make any assumptions on the random process that generate them.
+
+Let now assume that $Y$ - and possibly $X$ - is generated by a random variable.
+
+Further minimal assumptions will be specified later.
+
+--- 
+
+The question:
+**Is there a relationship between $Y$ and $X$**?
+
+We estimated 
+$\hat{\beta}_1=$ `r coefficients(model)[2]`
+
+but the **true value** $\beta_1$ is really different from 0 (i.e. no relationship)?  
+Otherwise, is the distance to 0 is due to the random sampling?
+
+
+- **Null Hypothesis** $H_0: \ \beta_1=0$ (the **true** $\beta_1$, not its estimate $\hat{\beta}_1$!).
+There is no relationship between $X$ and $Y$.
+
+- **Alternative Hypothesis **$H_1: \ \beta_1 >0$
+The relationship is positive.
+
+Other possible specifications of $H_1: \ \beta_1< 0$ and, more commonly,  $H_1: \ \beta_1 \neq 0$.
+
+
+
+<!-- ## Distribution of $\hat{\beta}_1$ (Statistics Test) if $H_0$ is true -->
+
+<!-- Suppose *the null hypothesis $H_0$ is true*. -->
+
+<!-- What are the possible values of $\beta_1$ conditional to the observed values $X$ and $Y$? -->
+
+<!-- On the data we calculated: -->
+<!-- ```{r} -->
+<!-- model=lm (Reaction.Time ~ Age, data=reaction) -->
+<!-- # Estimated beta_1: -->
+<!-- coefficients (model) [ "Age"] -->
+<!-- ``` -->
+
+
+
+## Permutation tests - in a nutshell
+As a toy example, let use a sub-set of the data:
+```{r, echo=FALSE,fig.height=4,fig.width=4}
+set.seed(123)
+(reactionREd=reaction[sample(nrow(reaction),3),])
+
+plot (reactionREd$Age, reactionREd$Reaction.Time, pch=20, col=1)
+abline (lm (Reaction.Time ~ Age, data=reactionREd))
+```
+
+---
+
+- *If $H_0$* is true: there is no linear relationship between $X$ and $Y$
+- Therefore, the trend observed on the data is due to chance.
+- Any other match of $x_i$ and $y_i$ was equally likely to occur
+- I can generate the datasets of other hypothetical experiments by exchanging the order of the observations in $Y$.
+- How many equally likely datasets could I get with$X$ and $Y$observed?
+$3 * 2 * 1=3!=6$ possible datasets.
+
+Remark: Here we only assume that $y$ is a random variable. The only assumption here is the exchangeability of the observations: the joint density $f(y_1,\ldots,y_n)$ does not change when the ordering of $y_1,\ldots,y_n$ is changed.
+
+## All potential datasets
+```{r, echo=FALSE}
+make_perm_plot<-function(yperm=sample(reaction$Age),reactionPerm=reaction){
+  reactionPerm$Reaction.Time=yperm
+  model=lm(Reaction.Time~Age,data=reactionPerm)
+  plot(reactionPerm$Age,reactionPerm$Reaction.Time,pch=20,col=3,cex=2,xlab="Age",ylab="Reaction.Time")
+  coeff=round(coefficients(model),2)
+  title(paste("Y=",coeff[1],"+",coeff[2],"*X"))
+  abline(model,col=2)
+}
+
+Y=cbind (reactionREd[,3],reactionREd[c(1,3,2),3],reactionREd[c(2,1,3),3],reactionREd[3:1,3],reactionREd[c(2,3,1),3],reactionREd[c(3,1,2),3])
+X=reactionREd$Age
+
+# Y=cbind (c (2,1,4), c (1,2,4), c (1,4,2),
+# c (4,1,2), c (4,2,1), c (2,4,1)) * 10
+# X=1: 3
+# cbind (X=X, Y)
+par (mfrow=c (2,3))
+for (i in 1: 6){
+make_perm_plot(Y[,i],reactionPerm = reactionREd)
+}
+par (mfrow=c (1,1))
+```
+
+---
+
+### In our data set
+
+We apply the same principle to the complete dataset...
+
+How many permutations of the vector $y_1,\ldots,y_n$ are possible? $n!=$ `r factorial(nrow(reaction))`.
+
+big, perhaps not too big ... but what happen with, for example, $n=20$? We got $20!=$ `r factorial(20)`. This is too big, definitely! 
+
+We calculate a smaller (but sufficiently large) $B$ of random permutations. 
+
+here some example
+
+---
+
+**`Age` vs a permutations of `Reaction.Time`**
+
+```{r, results='asis', echo=FALSE}
+
+par(mfrow=c(2,3))
+for(i in 1:6)
+  make_perm_plot()
+par(mfrow=c(1,1))
+```
+
+---
+
+We repeat `r (B=10000)` times and we look at the histogram of the $\hat{\beta}_1$
+
+```{r}
+# beta_1 estimated on the observed data:
+beta1=coefficients(lm(Reaction.Time~Age,data=reaction))[2]
+
+# function that permutes the y values and calculates the coeff beta_1
+my.beta.perm <- function(Y,X){
+  model=lm(sample(Y)~X)
+  coefficients(model)[2]
+}
+
+#replicate it B-1 times
+beta.perm= replicate(B,my.beta.perm(reaction$Reaction.Time, reaction$Age ))
+```
+
+----
+
+```{r,echo=FALSE}
+
+#the observed dataset is one of the possible permutations
+beta.perm=c(beta1,beta.perm)
+# str(beta.perm)
+hist(beta.perm,50)
+points(beta1,0,lwd=3,col=1)
+```
+
+## How likely WAS $\hat{\beta}_1 ^{obs}$?
+(before the experiment!)
+
+How likely was it to get a $\leq \hat{\beta}_1 ^{obs}$ value among the many possible values of $\hat{\beta}_1 ^{*b}$ (obtained by permuting data)?
+
+
+Remarks:
+
+- $\hat{\beta}_1 ^{* b}< \hat{\beta}_1 ^{obs}$ (closer to 0): less evidence against $H_1$ than $\hat{\beta}_1 ^{obs}$
+- $\hat{\beta}_1 ^{* b} \geq \hat{\beta}_1 ^{obs}$: equal or more evidence towards $H_1$ than $\hat{\beta}_1 ^{obs}$
+
+
+## Calculation of the p-value
+
+Over B=`r B` permutations we got `r sum (beta.perm <= beta1)` times a 
+$\hat{\beta}_1 ^{* b} \leq \hat{\beta}_1 ^{obs}$.
+
+The p-value (significance) is
+$p=\frac{\# (\hat{\beta}_1 ^{* b} \geq \hat{\beta}_1 ^{obs})}{B + 1} =$ `r (p=sum(beta.perm>= beta1)/B)`
+
+<!-- ```{r} -->
+<!-- hst=hist(beta.perm,plot=FALSE,50) -->
+<!-- hist(beta.perm,col=(hst$breaks[-1]<=beta1)+2, probability=TRUE ,50) -->
+<!-- points(beta1,0,lwd=3,col=1) -->
+<!-- ``` -->
+
+ 
+## Interpretation
+
+The probability of $p=P (\hat{\beta}_1 ^ * \leq \hat{\beta}_1=$ `r round (coefficients (model), 3)[2]` $| H_0)$ is equal to $p =$ `r p`, i.e. very small.  
+So, it was unlikely to get a value like this **IF $H_0$ is true**.
+
+Neyman-Pearson's approach has made common the use of a significance threshold for example $\alpha=.05$ (or $=. 01$).
+When $p \leq \alpha$ rejects the hypothesis that there is no relationship between X and Y ($H_0$). If so, we are inclined to think that $H_1$ is true (there is a positive relationship).
+
+- Type I error: False Positive  
+the true hypo is $H_0$ (null correlation), BUT we accept $H_1$ (correlation is positive)
+- Type II error: False Negative  
+the true hypo is $H_1$ (positive correlation), BUT we do not reject $H_0$ (null correlation)
+
+---
+
+**Type I error control**
+
+We want to guarantee not to get false relationships (a few false positives), better to be conservative. To make this, we want to bound the probability to make a false discovery:
+
+$P (p-value \leq \alpha | H_0) \leq \alpha$
+
+We built a machinery that in the long run (many replicates of the experiment) finds false correlations with probability $\alpha$ (e.g. $0.05=5\%$).
+
+## We make it in `flip`
+
+```{r}
+library(flip)
+
+(res=flip(Reaction.Time~Age,data=reaction,tail=1))
+## compare also with
+# flip(Reaction.Time~Age,data=reaction,tail=1,statTest = "cor")
+# flip(Reaction.Time~Age,data=reaction,tail=1,statTest = "coeff")
+```
+--- 
+
+```{r}
+plot(res)
+```
+
+
+## Composite alternatives (bilateral)
+The hypothesis $H_1: \ \beta_1 >0$ (the relation is positive) must be justified with a priori knowledge.
+
+
+More frequently, the Alternative hypothesis is appropriate:
+$H_1: \ \beta_1 \neq 0$
+(there is a relationship, I do not assume the direction)
+
+I consider anomalous coefficients estimated as very small but also very large ('far from 0').
+The p-value is 
+$p=\frac{\#(|\hat{\beta}_1^{*b} | \geq|\hat{\beta}_1^{obs}|)}{B+1}=$ `r (sum(beta.perm>=beta1)+sum(beta.perm<=-beta1))/B`
+
+----
+
+In `flip`:
+```{r}
+library(flip)
+(res=flip(Reaction.Time~Age,data=reaction,tail=0,perms=5000))
+plot(res)
+```
+----
+
+## The permutation tests
+
+- Do not be confused with bootstrap methods. The former are extractions without reintegration, the latter with. The former have almost optimal properties and have (almost always) an exact control of the first type errors.
+- They constitute a general approach and are applicable in many contexts. Very few assumptions.
+- Find some dedicated R library: [coin] (http://cran.r-project.org/web/packages/coin/index.html) and [flip] (http://cran.r-project.org/ web / packages / flip / index.html) (the development version is on [github] (https://github.com/livioivil/flip))
+- They are of limited applicability when there are many variables involved.
+
+## From permutation tests (non parametric) to parametric tests
+We can see that the histogram of the statistical tests (calculated on the permuted data) is well described by a **Gaussian **(normal) curve.
+
+----
+
+```{r}
+hist(beta.perm,50,probability=TRUE,col=2)
+curve(dnorm(x,mean(beta.perm),sd(beta.perm)),add=TRUE,col=1,lwd=3)
+points(beta1,0,lwd=3,col=1)
+```
+
+## The (simple) linear model
+We assume that the observed values are distributed around true values
+$\beta_0 + \beta_1 X$ according to a Gaussian law:
+
+$Y=\textrm{linear part} + \textrm{normal error}$
+
+$Y=\beta_0 + \beta_1 X + \varepsilon$
+
+**Assumptions of the linear model **
+
+- the $\boldsymbol{y_i=\beta_0 + \beta_1 x_i + \varepsilon_i}$
+the relationship between X and Y is truly linear, less than the error term $\varepsilon_i$
+<!-- -  the **observations ** are **independent** each others ( -->
+<!-- knowing the value of the $y_i$observation does not help me to predict the value of $y_{i + 1}$) -->
+- $\boldsymbol{\varepsilon_i \sim N (0, \sigma ^ 2), \ \forall i=1, \ldots, n}$ errors have normal distribution with zero mean and common variance (homoschedasticity: same variance).
+
+
+
+## Hypothesis testing
+If these assumptions are true,
+
+$\hat{\beta_1} \sim N (\beta_1, \sigma ^ 2 / \sum (x_i- \bar{x}) ^ 2)$
+
+We calculate the test statistic:
+
+$t=\frac{\hat{\beta_1}}{std.dev\ \hat{\beta_1}}=\frac{\hat{\beta_1}}{\sqrt{\sum_{i=1} ^ n (y_i- \hat{y}_i) ^ 2 / \sum (x_i- \bar{x}) ^ 2 / (n-2)}}$
+
+If $H_0: \beta_1=0$, $t \sim t (n-2)$ is true
+
+On Temperature data and $H_1: \beta_1 \neq 0$ (bilateral alternative)
+
+----
+
+```{r}
+model=lm (Reaction.Time ~ Age, data=reaction)
+summary (model)
+```
+
+Similar result, but much more assumptions!
+
+## The Two-independent-sample problem
+
+```{r}
+data("seeds")
+seeds=na.omit(seeds)
+
+(res=flip(x~grp,data=seeds))
+
+```
+----
+
+```{r}
+plot(res)
+```
+
+<!-- We can analyse it within a multivariate famework: -->
+<!-- ```{r} -->
+<!-- data("seeds") -->
+<!-- seeds=na.omit(seeds) -->
+
+<!-- (res=flip(.~grp,data=seeds)) -->
+<!-- plot(res) -->
+<!-- ``` -->
+
+## Chi square and other cathegorical methods
+
+
+```{r}
+data("seeds")
+seeds$Germinated=!is.na(seeds$x)
+seeds$Germinated=factor(seeds$Germinated)
+seeds$grp=factor(seeds$grp)
+(res=flip(Germinated~grp,data=seeds,statTest = "Chisq",perms=10000))
+```
+---
+
+```{r,fig.height=5,fig.width=5}
+plot(res)
+```
+
+---
+
+... and the Fisher test:
+```{r,fig.height=5,fig.width=5}
+(flip(Germinated~grp,data=seeds,statTest = "Fisher",perms=10000))
+```
+
+## Stratified permutations (nuisances)
+
+```{r}
+library(flip)
+(res=flip(Reaction.Time~Age,data=reaction,perms=50000))
+(res=flip(Reaction.Time~Age,Z=~Gender,data=reaction,perms=50000))
+(res=flip(Reaction.Time~Age*Gender,Z=~Gender,data=reaction,perms=50000))
+npc(res)
+plot(res)
+```
+
